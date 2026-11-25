@@ -1,0 +1,40 @@
+flowchart LR
+    subgraph AuthAndContext["1. Identity & Personalization Context (Members 2 & 5)"]
+        U["USERS<br/>(Account & Auth)"]
+        P["USER_PROFILES<br/>+ Lookup & Junction Tables<br/>(Age Group, Jurisdiction, Intended Uses)"]
+        U -->|"1:1"| P
+    end
+
+    subgraph IngestionAndNLP["2. Document Ingestion & NLP Extraction (Members 2 & 4)"]
+        D["DOCUMENTS<br/>(PDF Metadata / Policy URL / Status)"]
+        C["CLAUSES<br/>(Original Legal Text, Category, Severity)"]
+        S["CLAUSE_SUMMARIES<br/>(AI Plain-Language Explanations)"]
+        A["ANALYSIS_RESULTS<br/>(Overall Risk Score & Risk Counts)"]
+        D -->|"1:N"| C
+        C -->|"1:N"| S
+        D -->|"1:N"| A
+    end
+
+    subgraph Personalization["3. Context-Aware Risk Scoring (Member 5)"]
+        PR["PERSONALIZED_RISKS<br/>(Relevance Score, Risk Level, Why It Matters)"]
+    end
+
+    subgraph MonitoringAndDiffs["4. Version Tracking & Personalized Alerts (Member 6)"]
+        MP["MONITORED_POLICIES<br/>(Subscriptions, Schedule, Status)"]
+        PV["POLICY_VERSIONS<br/>(Snapshots & SHA-256 Content Hash)"]
+        PC["POLICY_CHANGES<br/>(Added / Removed / Modified, Direction, Magnitude)"]
+        N["NOTIFICATIONS<br/>(Personalized Alerts & Unread State)"]
+        MP -->|"triggers fetch"| PV
+        PV -->|"diff old vs new"| PC
+        PC -->|"generates"| N
+    end
+
+    U -->|"uploads / links"| D
+    U -->|"subscribes"| MP
+    D -->|"monitored by"| MP
+    D -->|"versioned in"| PV
+    P -->|"context weights"| PR
+    C -->|"evaluated into"| PR
+    C -->|"linked as old/new clause"| PC
+    PR -->|"prioritizes alert"| N
+    U -->|"receives"| N

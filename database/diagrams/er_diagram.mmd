@@ -1,0 +1,212 @@
+erDiagram
+    USERS {
+        bigint id PK
+        varchar username UK
+        varchar full_name
+        varchar email UK
+        varchar password
+        boolean is_active
+        boolean is_staff
+        boolean is_superuser
+        timestamptz last_login
+        timestamptz date_joined
+        timestamptz updated_at
+    }
+
+    AGE_GROUPS {
+        bigint id PK
+        varchar code UK
+        varchar label UK
+        smallint min_age
+        smallint max_age
+        text description
+    }
+
+    JURISDICTIONS {
+        bigint id PK
+        varchar code UK
+        varchar name UK
+        varchar primary_framework
+        text description
+    }
+
+    INTENDED_USE_CATEGORIES {
+        bigint id PK
+        varchar code UK
+        varchar name UK
+        text description
+    }
+
+    USER_PROFILES {
+        bigint id PK
+        bigint user_id FK, UK
+        bigint age_group_id FK
+        bigint jurisdiction_id FK
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    USER_PROFILE_INTENDED_USES {
+        bigint id PK
+        bigint user_profile_id FK
+        bigint intended_use_id FK
+        timestamptz created_at
+    }
+
+    DOCUMENTS {
+        bigint id PK
+        bigint user_id FK
+        varchar document_name
+        varchar document_type
+        varchar file_path
+        varchar policy_url
+        varchar source_type
+        varchar processing_status
+        boolean is_public_policy
+        boolean is_deleted
+        timestamptz deleted_at
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    CLAUSE_CATEGORIES {
+        bigint id PK
+        varchar code UK
+        varchar name UK
+        numeric default_weight
+        text description
+    }
+
+    CLAUSES {
+        bigint id PK
+        bigint document_id FK
+        bigint category_id FK
+        varchar clause_title
+        text original_text
+        numeric severity_score
+        integer clause_order
+        timestamptz created_at
+    }
+
+    CLAUSE_SUMMARIES {
+        bigint id PK
+        bigint clause_id FK
+        text simple_explanation
+        varchar summary_language
+        varchar model_name
+        integer summary_version
+        timestamptz created_at
+    }
+
+    ANALYSIS_RESULTS {
+        bigint id PK
+        bigint document_id FK
+        integer total_clauses
+        integer high_risk_count
+        integer medium_risk_count
+        integer low_risk_count
+        numeric overall_risk_score
+        varchar analysis_status
+        timestamptz created_at
+    }
+
+    PERSONALIZED_RISKS {
+        bigint id PK
+        bigint user_id FK
+        bigint clause_id FK
+        numeric relevance_score
+        varchar risk_level
+        text why_it_matters
+        timestamptz created_at
+    }
+
+    POLICY_VERSIONS {
+        bigint id PK
+        bigint document_id FK
+        varchar version_number
+        integer version_sequence
+        text version_text
+        varchar stored_reference
+        char content_hash
+        timestamptz fetched_at
+        timestamptz created_at
+    }
+
+    POLICY_CHANGES {
+        bigint id PK
+        bigint document_id FK
+        bigint old_version_id FK
+        bigint new_version_id FK
+        bigint old_clause_id FK
+        bigint new_clause_id FK
+        varchar change_type
+        varchar change_direction
+        numeric magnitude
+        text change_summary
+        timestamptz detected_at
+    }
+
+    NOTIFICATIONS {
+        bigint id PK
+        bigint user_id FK
+        bigint policy_change_id FK
+        varchar title
+        text message
+        numeric alert_score
+        varchar severity
+        boolean is_read
+        timestamptz created_at
+    }
+
+    MONITORED_POLICIES {
+        bigint id PK
+        bigint user_id FK
+        bigint document_id FK
+        varchar policy_url
+        varchar monitoring_status
+        integer check_interval_hours
+        timestamptz last_checked_at
+        timestamptz next_check_at
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    %% One-to-One: User <-> UserProfile
+    USERS ||--|| USER_PROFILES : "has profile (1:1)"
+
+    %% Lookup -> UserProfile (1:N)
+    AGE_GROUPS ||--o{ USER_PROFILES : "classifies"
+    JURISDICTIONS ||--o{ USER_PROFILES : "governs"
+
+    %% Many-to-Many: UserProfile <-> IntendedUseCategories via junction table
+    USER_PROFILES ||--o{ USER_PROFILE_INTENDED_USES : "selects"
+    INTENDED_USE_CATEGORIES ||--o{ USER_PROFILE_INTENDED_USES : "assigned to"
+
+    %% User -> Documents, PersonalizedRisks, Notifications, MonitoredPolicies
+    USERS ||--o{ DOCUMENTS : "uploads (SET NULL on delete)"
+    USERS ||--o{ PERSONALIZED_RISKS : "receives risk scores"
+    USERS ||--o{ NOTIFICATIONS : "receives alerts"
+    USERS ||--o{ MONITORED_POLICIES : "subscribes to"
+
+    %% Document -> Clauses, AnalysisResults, PolicyVersions, PolicyChanges, MonitoredPolicies
+    DOCUMENTS ||--o{ CLAUSES : "contains"
+    DOCUMENTS ||--o{ ANALYSIS_RESULTS : "evaluated by"
+    DOCUMENTS ||--o{ POLICY_VERSIONS : "tracks history"
+    DOCUMENTS ||--o{ POLICY_CHANGES : "records diffs"
+    DOCUMENTS ||--o{ MONITORED_POLICIES : "monitored via"
+
+    %% ClauseCategory -> Clauses (1:N)
+    CLAUSE_CATEGORIES ||--o{ CLAUSES : "categorizes"
+
+    %% Clause -> ClauseSummaries, PersonalizedRisks, PolicyChanges
+    CLAUSES ||--o{ CLAUSE_SUMMARIES : "explained by"
+    CLAUSES ||--o{ PERSONALIZED_RISKS : "scored in"
+    CLAUSES |o--o{ POLICY_CHANGES : "old_clause_id"
+    CLAUSES |o--o{ POLICY_CHANGES : "new_clause_id"
+
+    %% PolicyVersions -> PolicyChanges
+    POLICY_VERSIONS ||--o{ POLICY_CHANGES : "old_version_id"
+    POLICY_VERSIONS ||--o{ POLICY_CHANGES : "new_version_id"
+
+    %% PolicyChanges -> Notifications
+    POLICY_CHANGES |o--o{ NOTIFICATIONS : "triggers"
